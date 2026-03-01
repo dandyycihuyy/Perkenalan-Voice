@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>✋ Perkenalan-Voice</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --c1: #d4a8ff;
+      --c2: #7ef4e8;
+      --c3: #ffd4a8;
+      --bg: #080810;
+      --surface: rgba(12, 10, 24, 0.88);
+      --border: rgba(212, 168, 255, 0.12);
+      --text: #f0eeff;
+      --muted: #5a5575;
+    }
+
+    html, body {
+      width: 100%; height: 100dvh;
+      overflow: hidden; background: var(--bg);
+      font-family: 'Space Mono', monospace;
+      color: var(--text); touch-action: none;
+    }
+
+    /* ── AURORA BACKGROUND ── */
+    #aurora {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    }
+    .aurora-blob {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); opacity: 0.18; animation: drift 12s ease-in-out infinite alternate;
+    }
+    .a1 { width: 60vw; height: 60vw; background: #7c3aed; top: -20%; left: -10%; animation-delay: 0s; }
+    .a2 { width: 50vw; height: 50vw; background: #0e7490; bottom: -15%; right: -10%; animation-delay: -4s; }
+    .a3 { width: 40vw; height: 40vw; background: #c2410c; top: 30%; left: 30%; animation-delay: -8s; }
+    @keyframes drift {
+      0%   { transform: translate(0,0) scale(1); }
+      100% { transform: translate(5vw, 4vh) scale(1.12); }
+    }
+
+    /* ── VIDEO & LANDMARK OVERLAY ── */
+    #video { position: fixed; left: -9999px; opacity: 0; width: 1px; height: 1px; }
+
+    #cam-preview {
+      position: fixed; bottom: 130px; right: 10px; z-index: 8;
+      width: 110px; height: 82px; border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 0 20px rgba(126,244,232,0.08);
+    }
+    #cam-mirror {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; transform: scaleX(-1);
+      opacity: 0.7;
+    }
+    #lm-canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 6;
+    }
+
+    /* ── HEADER ── */
+    #header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+      padding: 10px 16px;
+      background: var(--surface); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #header h1 {
+      font-family: 'DM Serif Display', serif; font-size: 1rem;
+      background: linear-gradient(90deg, var(--c1), var(--c2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #status-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.58rem; color: var(--muted);
+    }
+    #status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted); transition: background 0.3s, box-shadow 0.3s;
+    }
+    #status-dot.ready { background: var(--c2); box-shadow: 0 0 8px var(--c2); }
+    #status-dot.speaking { background: var(--c1); box-shadow: 0 0 10px var(--c1); animation: pulse-dot 0.5s infinite alternate; }
+    @keyframes pulse-dot { to { opacity: 0.35; } }
+
+    /* ── MAIN STAGE ── */
+    #stage {
+      position: fixed; inset: 0; z-index: 4;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; pointer-events: none;
+    }
+
+    #word-display {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(3rem, 14vw, 7rem);
+      text-align: center;
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      background: linear-gradient(135deg, var(--c1) 0%, var(--c2) 50%, var(--c3) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 40px rgba(212,168,255,0.3));
+      opacity: 0; transform: translateY(24px) scale(0.92);
+      transition: opacity 0.35s cubic-bezier(.22,.68,0,1.2), transform 0.35s cubic-bezier(.22,.68,0,1.2), filter 0.35s;
+      padding: 0 20px; max-width: 90vw;
+    }
+    #word-display.show {
+      opacity: 1; transform: translateY(0) scale(1);
+      filter: drop-shadow(0 0 50px rgba(212,168,255,0.5));
+    }
+    #word-display.fade-out {
+      opacity: 0; transform: translateY(-18px) scale(1.04);
+    }
+
+    #gesture-hint {
+      font-size: 0.65rem; letter-spacing: 0.1em;
+      color: var(--muted); text-transform: uppercase;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #gesture-hint.show { opacity: 1; }
+
+    /* ── FINGER GUIDE PANEL ── */
+    #guide {
+      position: fixed; bottom: 128px; left: 10px; z-index: 20;
+      background: var(--surface); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 5px;
+      max-width: 168px;
+    }
+    #guide-title {
+      font-size: 0.52rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 2px;
+    }
+    .g-row {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 0.58rem; color: var(--muted);
+      transition: color 0.2s;
+    }
+    .g-row.active { color: var(--c2); }
+    .g-row.speaking { color: var(--c1); }
+    .g-fingers {
+      display: flex; gap: 2px; font-size: 0.7rem;
+    }
+    .fi {
+      width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.45rem; letter-spacing: 0; color: var(--muted);
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .fi.lit { background: rgba(126,244,232,0.15); border-color: var(--c2); color: var(--c2); }
+    .g-row.speaking .fi.lit { background: rgba(212,168,255,0.2); border-color: var(--c1); color: var(--c1); }
+    .g-word { flex: 1; text-align: right; font-style: italic; font-size: 0.6rem; }
+
+    /* ── FINGER LIVE STATUS BAR ── */
+    #finger-bar {
+      position: fixed; bottom: 72px; left: 50%; transform: translateX(-50%);
+      z-index: 20; display: flex; gap: 6px; align-items: flex-end;
+    }
+    .fb {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .fb-name {
+      font-size: 0.42rem; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .fb-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    .fb-dot.on { background: var(--c2); box-shadow: 0 0 8px var(--c2); }
+
+    /* ── TOOLBAR ── */
+    #toolbar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+      background: var(--surface); backdrop-filter: blur(14px);
+      border-top: 1px solid var(--border);
+      padding: 8px 14px 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    #toolbar span { font-size: 0.58rem; color: var(--muted); }
+    .tbtn {
+      background: none; border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px;
+      padding: 6px 12px; font-family: 'Space Mono', monospace;
+      font-size: 0.6rem; cursor: pointer; letter-spacing: 0.05em;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .tbtn:active { background: rgba(212,168,255,0.1); border-color: var(--c1); color: var(--c1); }
+    #vol-toggle.muted { border-color: #ff6b6b; color: #ff6b6b; }
+
+    /* ── PARTICLES ── */
+    .particle {
+      position: fixed; pointer-events: none; z-index: 15;
+      border-radius: 50%; animation: particle-fly 0.9s ease-out forwards;
+    }
+    @keyframes particle-fly {
+      0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0.2); }
+    }
+
+    /* ── LOADING ── */
+    #loading {
+      position: fixed; inset: 0; z-index: 100;
+      background: var(--bg); display: flex;
+      flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+    }
+    #loading h2 {
+      font-family: 'DM Serif Display', serif; font-size: 1.6rem;
+      background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #loading p { font-size: 0.64rem; color: var(--muted); text-align: center; max-width: 260px; line-height: 1.7; }
+    #lb-wrap { width: 200px; height: 3px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    #lb { height: 100%; width: 0%; background: linear-gradient(90deg, var(--c1), var(--c2)); transition: width 0.4s; }
+    #ls { font-size: 0.6rem; color: var(--muted); }
+
+    /* ── RIPPLE ON WORD APPEAR ── */
+    #ripple {
+      position: fixed; inset: 0; z-index: 3; pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ripple-ring {
+      position: absolute; border-radius: 50%;
+      border: 2px solid rgba(212,168,255,0.3);
+      animation: ripple-expand 0.8s ease-out forwards;
+    }
+    @keyframes ripple-expand {
+      0%   { width: 0; height: 0; opacity: 0.8; }
+      100% { width: 220px; height: 220px; opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Aurora BG -->
+<div id="aurora">
+  <div class="aurora-blob a1"></div>
+  <div class="aurora-blob a2"></div>
+  <div class="aurora-blob a3"></div>
+</div>
+
+<!-- Video (hidden) -->
+<video id="video" autoplay playsinline muted></video>
+
+<!-- Landmark Canvas -->
+<canvas id="lm-canvas"></canvas>
+
+<!-- Camera Preview -->
+<div id="cam-preview">
+  <video id="cam-mirror" autoplay playsinline muted></video>
+</div>
+
+<!-- Ripple layer -->
+<div id="ripple"></div>
+
+<!-- Header -->
+<div id="header">
+  <h1>✋ Perkenalan-Voice</h1>
+  <div id="status-pill">
+    <div id="status-dot"></div>
+    <span id="status-text">Memuat...</span>
+  </div>
+</div>
+
+<!-- Main Stage -->
+<div id="stage">
+  <div id="word-display">—</div>
+  <div id="gesture-hint"></div>
+</div>
+
+<!-- Finger Live Bar -->
+<div id="finger-bar">
+  <div class="fb"><div class="fb-dot" id="fd-thumb"></div><div class="fb-name">J</div></div>
+  <div class="fb"><div class="fb-dot" id="fd-index"></div><div class="fb-name">T</div></div>
+  <div class="fb"><div class="fb-dot" id="fd-middle"></div><div class="fb-name">TG</div></div>
+  <div class="fb"><div class="fb-dot" id="fd-ring"></div><div class="fb-name">M</div></div>
+  <div class="fb"><div class="fb-dot" id="fd-pinky"></div><div class="fb-name">KL</div></div>
+</div>
+
+<!-- Gesture Guide -->
+<div id="guide">
+  <div id="guide-title">GUIDE GESTURE</div>
+
+  <div class="g-row" id="gr-1">
+    <div class="g-fingers">
+      <div class="fi" data-f="thumb">J</div>
+      <div class="fi" data-f="index">T</div>
+      <div class="fi" data-f="middle">TG</div>
+      <div class="fi" data-f="ring">M</div>
+      <div class="fi" data-f="pinky">KL</div>
+    </div>
+    <div class="g-word">"Halo"</div>
+  </div>
+
+  <div class="g-row" id="gr-2">
+    <div class="g-fingers">
+      <div class="fi" data-f="index">T</div>
+    </div>
+    <div class="g-word">"Perkenalkan"</div>
+  </div>
+
+  <div class="g-row" id="gr-3">
+    <div class="g-fingers">
+      <div class="fi" data-f="index">T</div>
+      <div class="fi" data-f="middle">TG</div>
+    </div>
+    <div class="g-word">"Saya"</div>
+  </div>
+
+  <div class="g-row" id="gr-4">
+    <div class="g-fingers">
+      <div class="fi" data-f="thumb">J</div>
+      <div class="fi" data-f="index">T</div>
+      <div class="fi" data-f="pinky">KL</div>
+    </div>
+    <div class="g-word">"Jokowi Gemoy"</div>
+  </div>
+
+  <div class="g-row" id="gr-5">
+    <div class="g-fingers">
+      <div class="fi" data-f="pinky">KL</div>
+    </div>
+    <div class="g-word">"Terima kasih"</div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <span id="tbar-info">Gunakan gestur tangan untuk berbicara</span>
+  <button class="tbtn" id="vol-toggle">🔊 SUARA ON</button>
+  <button class="tbtn" id="test-btn">▶ TEST</button>
+</div>
+
+<!-- Loading -->
+<div id="loading">
+  <h2>✋ Perkenalan Interaktif</h2>
+  <div id="lb-wrap"><div id="lb"></div></div>
+  <div id="ls">Memuat MediaPipe Hands...</div>
+  <p>Izinkan akses kamera saat diminta. Model AI memerlukan beberapa saat untuk diunduh.</p>
+</div>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+<script>
+// ══════════════════════════════════════════
+//  GESTURE DEFINITIONS
+// ══════════════════════════════════════════
+const GESTURES = [
+  {
+    id: 'gr-1',
+    text: 'Halo',
+    hint: '✋ Semua jari terbuka',
+    check: f => f.thumb && f.index && f.middle && f.ring && f.pinky,
+    fingers: ['thumb','index','middle','ring','pinky']
+  },
+  {
+    id: 'gr-2',
+    text: 'Perkenalkan',
+    hint: '☝️ Jari telunjuk saja',
+    check: f => !f.thumb && f.index && !f.middle && !f.ring && !f.pinky,
+    fingers: ['index']
+  },
+  {
+    id: 'gr-3',
+    text: 'Saya',
+    hint: '✌️ Telunjuk + tengah',
+    check: f => !f.thumb && f.index && f.middle && !f.ring && !f.pinky,
+    fingers: ['index','middle']
+  },
+  {
+    id: 'gr-4',
+    text: 'Jokowi Gemoy',
+    hint: '🤙 Jempol + telunjuk + kelingking',
+    check: f => f.thumb && f.index && !f.middle && !f.ring && f.pinky,
+    fingers: ['thumb','index','pinky']
+  },
+  {
+    id: 'gr-5',
+    text: 'Terima kasih',
+    hint: '🤙 Kelingking saja',
+    check: f => !f.thumb && !f.index && !f.middle && !f.ring && f.pinky,
+    fingers: ['pinky']
+  }
+];
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let voiceEnabled = true;
+let isSpeaking = false;
+let holdTimer = null;
+const HOLD_MS = 600;       // ms to hold gesture before trigger
+let holdingGesture = null; // gesture id currently being held
+let firedGesture = null;   // gesture id that was last fired — must RELEASE before re-fire
+let handPresent = false;   // track whether hand is visible
+
+// ══════════════════════════════════════════
+//  TTS (Web Speech API – Google TTS on Chrome)
+// ══════════════════════════════════════════
+function speak(text) {
+  if (!voiceEnabled) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'id-ID';
+  u.rate = 0.9;
+  u.pitch = 1.05;
+  u.volume = 1;
+  // Try to pick Google Indonesian voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const idVoice = voices.find(v => v.lang.startsWith('id') && v.name.toLowerCase().includes('google'))
+    || voices.find(v => v.lang.startsWith('id'));
+  if (idVoice) u.voice = idVoice;
+  u.onstart = () => { isSpeaking = true; document.getElementById('status-dot').className = 'speaking'; };
+  u.onend = u.onerror = () => { isSpeaking = false; document.getElementById('status-dot').className = 'ready'; };
+  window.speechSynthesis.speak(u);
+}
+
+// Preload voices
+if (window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
+
+// ══════════════════════════════════════════
+//  WORD DISPLAY
+// ══════════════════════════════════════════
+const wordEl = document.getElementById('word-display');
+const hintEl = document.getElementById('gesture-hint');
+let displayTimer = null;
+
+function showWord(text, hint) {
+  // Fade out current
+  wordEl.classList.remove('show');
+  wordEl.classList.add('fade-out');
+  clearTimeout(displayTimer);
+  setTimeout(() => {
+    wordEl.textContent = text;
+    wordEl.classList.remove('fade-out');
+    wordEl.classList.add('show');
+    hintEl.textContent = hint;
+    hintEl.classList.add('show');
+    spawnRipple();
+    spawnParticles();
+    displayTimer = setTimeout(() => {
+      wordEl.classList.remove('show');
+      hintEl.classList.remove('show');
+    }, 3500);
+  }, 200);
+}
+
+// ══════════════════════════════════════════
+//  RIPPLE
+// ══════════════════════════════════════════
+function spawnRipple() {
+  const container = document.getElementById('ripple');
+  for (let i = 0; i < 3; i++) {
+    const r = document.createElement('div');
+    r.className = 'ripple-ring';
+    r.style.animationDelay = (i * 0.18) + 's';
+    container.appendChild(r);
+    setTimeout(() => r.remove(), 1200 + i * 200);
+  }
+}
+
+// ══════════════════════════════════════════
+//  PARTICLES
+// ══════════════════════════════════════════
+function spawnParticles() {
+  const colors = ['#d4a8ff', '#7ef4e8', '#ffd4a8', '#ff9eb5'];
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const angle = (i / 18) * Math.PI * 2 + Math.random() * 0.3;
+    const dist = 60 + Math.random() * 100;
+    p.style.cssText = `
+      left:${cx}px; top:${cy}px;
+      width:${4+Math.random()*5}px; height:${4+Math.random()*5}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      --px:${Math.cos(angle)*dist}px; --py:${Math.sin(angle)*dist}px;
+      animation-duration:${0.6+Math.random()*0.5}s;
+    `;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+}
+
+// ══════════════════════════════════════════
+//  GUIDE ROW HIGHLIGHT
+// ══════════════════════════════════════════
+function highlightGuide(gestureId, state) {
+  GESTURES.forEach(g => {
+    const row = document.getElementById(g.id);
+    if (!row) return;
+    row.classList.remove('active', 'speaking');
+    row.querySelectorAll('.fi').forEach(fi => fi.classList.remove('lit'));
+  });
+  if (!gestureId) return;
+  const g = GESTURES.find(x => x.id === gestureId);
+  const row = document.getElementById(gestureId);
+  if (!row || !g) return;
+  row.classList.add(state);
+  g.fingers.forEach(fname => {
+    row.querySelectorAll(`.fi[data-f="${fname}"]`).forEach(fi => fi.classList.add('lit'));
+  });
+}
+
+// ══════════════════════════════════════════
+//  FINGER LIVE DOTS
+// ══════════════════════════════════════════
+const fdMap = {
+  thumb:  document.getElementById('fd-thumb'),
+  index:  document.getElementById('fd-index'),
+  middle: document.getElementById('fd-middle'),
+  ring:   document.getElementById('fd-ring'),
+  pinky:  document.getElementById('fd-pinky'),
+};
+function updateFingerBar(fingers) {
+  Object.entries(fdMap).forEach(([name, el]) => {
+    el.classList.toggle('on', !!fingers[name]);
+  });
+}
+
+// ══════════════════════════════════════════
+//  TRIGGER GESTURE
+// ══════════════════════════════════════════
+function triggerGesture(g) {
+  firedGesture = g.id; // lock: won't fire again until gesture is released
+  speak(g.text);
+  showWord(g.text, g.hint);
+  highlightGuide(g.id, 'speaking');
+  document.getElementById('tbar-info').textContent = '💬 ' + g.text;
+  setTimeout(() => { if (!isSpeaking) highlightGuide(null, ''); }, 2500);
+}
+
+// ══════════════════════════════════════════
+//  FINGER DETECTION (from MediaPipe Landmarks)
+// ══════════════════════════════════════════
+function detectFingers(lm) {
+  const index  = lm[8].y  < lm[6].y;
+  const middle = lm[12].y < lm[10].y;
+  const ring   = lm[16].y < lm[14].y;
+  const pinky  = lm[20].y < lm[18].y;
+  // Thumb: tip far from index MCP
+  const thumbDist = Math.hypot(lm[4].x - lm[5].x, lm[4].y - lm[5].y);
+  const thumb  = thumbDist > 0.1;
+  return { thumb, index, middle, ring, pinky };
+}
+
+// ══════════════════════════════════════════
+//  HAND LANDMARK DRAWING
+// ══════════════════════════════════════════
+const lmCanvas = document.getElementById('lm-canvas');
+const lmCtx = lmCanvas.getContext('2d');
+const CONN = [
+  [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],[0,17]
+];
+
+function drawHand(lm) {
+  const W = lmCanvas.width, H = lmCanvas.height;
+  lmCtx.clearRect(0, 0, W, H);
+  // Connections
+  lmCtx.lineWidth = 2; lmCtx.strokeStyle = 'rgba(212,168,255,0.4)';
+  lmCtx.shadowColor = '#d4a8ff'; lmCtx.shadowBlur = 6;
+  CONN.forEach(([a, b]) => {
+    lmCtx.beginPath();
+    lmCtx.moveTo((1 - lm[a].x) * W, lm[a].y * H);
+    lmCtx.lineTo((1 - lm[b].x) * W, lm[b].y * H);
+    lmCtx.stroke();
+  });
+  // Dots
+  lmCtx.shadowBlur = 0;
+  lm.forEach((pt, i) => {
+    const x = (1 - pt.x) * W, y = pt.y * H;
+    const isTip = [4, 8, 12, 16, 20].includes(i);
+    lmCtx.beginPath();
+    lmCtx.arc(x, y, isTip ? 7 : 4, 0, Math.PI * 2);
+    lmCtx.fillStyle = isTip ? '#7ef4e8' : 'rgba(212,168,255,0.7)';
+    lmCtx.shadowColor = isTip ? '#7ef4e8' : 'transparent';
+    lmCtx.shadowBlur = isTip ? 12 : 0;
+    lmCtx.fill();
+  });
+  lmCtx.shadowBlur = 0;
+}
+
+// ══════════════════════════════════════════
+//  MEDIAPIPE RESULTS
+// ══════════════════════════════════════════
+function onResults(results) {
+  lmCtx.clearRect(0, 0, lmCanvas.width, lmCanvas.height);
+
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    // Hand gone → reset ALL state so every gesture can fire fresh
+    if (holdingGesture) { clearTimeout(holdTimer); holdingGesture = null; }
+    firedGesture = null;   // ← release lock when hand leaves frame
+    handPresent = false;
+    updateFingerBar({ thumb:false, index:false, middle:false, ring:false, pinky:false });
+    highlightGuide(null, '');
+    document.getElementById('status-dot').className = 'ready';
+    document.getElementById('status-text').textContent = 'Tunjukkan tangan';
+    return;
+  }
+
+  const lm = results.multiHandLandmarks[0];
+  drawHand(lm);
+
+  const fingers = detectFingers(lm);
+  updateFingerBar(fingers);
+
+  // Match gesture
+  let matched = null;
+  for (const g of GESTURES) {
+    if (g.check(fingers)) { matched = g; break; }
+  }
+
+  document.getElementById('status-dot').className = matched ? (isSpeaking ? 'speaking' : 'ready') : 'ready';
+  document.getElementById('status-text').textContent = matched
+    ? `Tahan: "${matched.text}"`
+    : fingers.thumb || fingers.index || fingers.middle || fingers.ring || fingers.pinky
+      ? 'Gesture tidak dikenal'
+      : 'Tidak ada jari terangkat';
+
+  if (matched) {
+    highlightGuide(matched.id, 'active');
+
+    // If this gesture already fired, wait until user changes gesture before allowing re-fire
+    if (firedGesture === matched.id) {
+      document.getElementById('status-text').textContent = `✅ Sudah diucapkan — ganti gesture`;
+      return;
+    }
+
+    // Different gesture from last fired → reset lock
+    if (firedGesture && firedGesture !== matched.id) {
+      firedGesture = null;
+    }
+
+    if (holdingGesture !== matched.id) {
+      clearTimeout(holdTimer);
+      holdingGesture = matched.id;
+      holdTimer = setTimeout(() => {
+        if (holdingGesture === matched.id) {
+          triggerGesture(matched);
+          holdingGesture = null;
+        }
+      }, HOLD_MS);
+    }
+  } else {
+    clearTimeout(holdTimer);
+    holdingGesture = null;
+    // If user changes away from firedGesture to a non-matching pose, release the lock
+    if (firedGesture) firedGesture = null;
+    if (!isSpeaking) highlightGuide(null, '');
+  }
+}
+
+// ══════════════════════════════════════════
+//  INIT CAMERA + HANDS
+// ══════════════════════════════════════════
+const videoHidden = document.getElementById('video');
+const camMirror = document.getElementById('cam-mirror');
+const lb = document.getElementById('lb');
+const ls = document.getElementById('ls');
+
+const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.7, minTrackingConfidence: 0.6 });
+hands.onResults(onResults);
+
+lb.style.width = '20%'; ls.textContent = 'Membuka kamera...';
+
+// We need to share stream for both hidden processing and preview
+navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
+  .then(stream => {
+    videoHidden.srcObject = stream;
+    camMirror.srcObject = stream;
+    videoHidden.play(); camMirror.play();
+    lb.style.width = '55%'; ls.textContent = 'Mengunduh model AI...';
+
+    const cam = new Camera(videoHidden, {
+      onFrame: async () => { await hands.send({ image: videoHidden }); },
+      width: 640, height: 480
+    });
+    cam.start().then(() => {
+      lb.style.width = '90%'; ls.textContent = 'Hampir selesai...';
+      setTimeout(() => {
+        lb.style.width = '100%'; ls.textContent = 'Siap!';
+        document.getElementById('status-dot').className = 'ready';
+        document.getElementById('status-text').textContent = 'Tunjukkan tangan';
+        setTimeout(() => document.getElementById('loading').style.display = 'none', 400);
+      }, 1800);
+    });
+  })
+  .catch(err => {
+    ls.textContent = '❌ Kamera gagal: ' + err.message;
+    lb.style.background = '#ff6b6b';
+  });
+
+// ══════════════════════════════════════════
+//  TOOLBAR BUTTONS
+// ══════════════════════════════════════════
+document.getElementById('vol-toggle').addEventListener('click', () => {
+  voiceEnabled = !voiceEnabled;
+  const btn = document.getElementById('vol-toggle');
+  btn.textContent = voiceEnabled ? '🔊 SUARA ON' : '🔇 SUARA OFF';
+  btn.classList.toggle('muted', !voiceEnabled);
+  if (!voiceEnabled) window.speechSynthesis.cancel();
+});
+
+// Test: play all words in sequence
+document.getElementById('test-btn').addEventListener('click', () => {
+  let i = 0;
+  function next() {
+    if (i >= GESTURES.length) return;
+    const g = GESTURES[i++];
+    showWord(g.text, g.hint);
+    speak(g.text);
+    highlightGuide(g.id, 'speaking');
+    setTimeout(next, 1600);
+  }
+  next();
+});
+
+// ══════════════════════════════════════════
+//  RESIZE
+// ══════════════════════════════════════════
+function onResize() {
+  lmCanvas.width = window.innerWidth;
+  lmCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', onResize);
+onResize();
+</script>
+</body>
+</html>
