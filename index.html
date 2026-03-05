@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>✋ Perkenalan-Voice</title>
+  <title>Hand-Tracked Introduction</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
 
@@ -260,7 +260,7 @@
 
 <!-- Header -->
 <div id="header">
-  <h1>✋ Perkenalan-Voice</h1>
+  <h1>Hand-Tracked Introduction</h1>
   <div id="status-pill">
     <div id="status-dot"></div>
     <span id="status-text">Memuat...</span>
@@ -318,7 +318,7 @@
       <div class="fi" data-f="index">T</div>
       <div class="fi" data-f="pinky">KL</div>
     </div>
-    <div class="g-word">"Hebat kamu Bud"</div>
+    <div class="g-word">"Dandy Ahmad"</div>
   </div>
 
   <div class="g-row" id="gr-5">
@@ -338,7 +338,7 @@
 
 <!-- Loading -->
 <div id="loading">
-  <h2>✋ Perkenalan Interaktif</h2>
+  <h2>Perkenalan Interaktif</h2>
   <div id="lb-wrap"><div id="lb"></div></div>
   <div id="ls">Memuat MediaPipe Hands...</div>
   <p>Izinkan akses kamera saat diminta. Model AI memerlukan beberapa saat untuk diunduh.</p>
@@ -376,7 +376,7 @@ const GESTURES = [
   },
   {
     id: 'gr-4',
-    text: 'Hebat kamu Bud',
+    text: 'Dandy Ahmad',
     hint: '🤙 Jempol + telunjuk + kelingking',
     check: f => f.thumb && f.index && !f.middle && !f.ring && f.pinky,
     fingers: ['thumb','index','pinky']
